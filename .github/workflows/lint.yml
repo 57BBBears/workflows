@@ -1,0 +1,30 @@
+name: Ruff linting
+
+on:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install ruff
+      run: pip install ruff
+
+    - name: Format code
+      run: ruff check --config pyproject.toml --fix .
+    - run: ruff format --config pyproject.toml .
+
+    - name: Auto-commit
+      if: ${{ !env.ACT }} # skip during local actions testing
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: Style fixes by ruff
