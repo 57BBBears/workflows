@@ -1,0 +1,79 @@
+name: Pytest tests
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Version of Python to run builds on'
+        type: string
+        required: false
+        default: '3.12'
+#      postgres-version:
+#        description: 'Version of Postgres'
+#        type: string
+#        required: false
+#        default: '16'
+#      postgres-user:
+#        description: 'User to connect to a postgres database'
+#        type: string
+#        required: false
+#        default: 'test'
+#      postgres-password:
+#        description: 'Password for user to connect to a postgres database'
+#        type: string
+#        required: false
+#        default: 'test'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+#    services:
+#      postgres:
+#        image: postgres:${{ inputs.postgres-version }}
+#        ports:
+#          - 5432:5432
+#        env:
+#          POSTGRES_USER: ${{ inputs.postgres-user }}
+#          POSTGRES_PASSWORD: ${{ inputs.postgres-password }}
+#        # Set health checks to wait until postgres has started
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          virtualenvs-path: .venv
+          installer-parallel: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Run tests
+        run: poetry run pytest --cov=src
