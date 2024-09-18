@@ -1,0 +1,68 @@
+name: Deploy with docker compose
+# All environment variables passed to docker compose file start with INPUT_
+on:
+  workflow_call:
+    inputs:
+      host:
+        description: 'SSH host address'
+        type: string
+        required: true
+      port:
+        description: 'SSH port number'
+        type: string
+        required: false
+        default: '22'
+      username:
+        description: 'SSH username'
+        type: string
+        required: true
+      sudo-password:
+        description: 'Remote server user password'
+        type: string
+        required: true
+      key:
+        description: 'Content of SSH private key. e.g., raw content of ~/.ssh/id_rsa'
+        type: string
+        required: true
+      project-folder:
+        description: 'Project folder on a remote server to deploy in'
+        type: string
+        required: true
+      file:
+        description: 'Docker compose file'
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ALL_SECRETS: ${{ toJSON(secrets) }}
+
+    steps:
+      - name: Secrets to envs
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          to_envs() { jq -r "to_entries[] | \"INPUT_\(.key)<<$EOF\n\(.value)\n$EOF\""; }
+          echo "$ALL_SECRETS" | to_envs >> $GITHUB_ENV
+
+      - name: Deploy on a remote server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ inputs.host }}
+          username: ${{ inputs.username }}
+          key: ${{ inputs.key }}
+          port: ${{ inputs.port }}
+          allenvs: true
+          script: |
+            cd ${{ inputs.project-folder }}
+            git checkout ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+            git pull
+            echo '${{ inputs.sudo-password }}' | sudo -SE docker compose -f ${{ inputs.file }} down
+            sudo -E docker compose -f ${{ inputs.file }} up -d --build
+            echo '${{ inputs.sudo-password }}' | sudo -S docker system prune --all --force
