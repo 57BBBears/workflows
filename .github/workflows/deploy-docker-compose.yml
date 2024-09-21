@@ -1,36 +1,33 @@
 name: Deploy with docker compose
-# All environment variables passed to docker compose file start with INPUT_
+# All environment variables will be passed to docker compose file with a prefix INPUT_
 on:
   workflow_call:
     inputs:
-      host:
-        description: 'SSH host address'
-        type: string
-        required: true
-      port:
-        description: 'SSH port number'
-        type: string
+      environment:
+        description: 'Environment to deploy to. Used as a prefix to required secrets e.g. <environment>_SSH_HOST'
         required: false
-        default: '22'
-      username:
+        default: ''
+    secrets:
+      SSH_HOST:
+        description: 'SSH host address'
+        required: true
+      SSH_PORT:
+        description: 'SSH port number'
+        required: true
+      SSH_USERNAME:
         description: 'SSH username'
-        type: string
         required: true
-      sudo-password:
+      SSH_SUDO_PASSWORD:
         description: 'Remote server user password'
-        type: string
         required: true
-      key:
+      SSH_PRIVATE_KEY:
         description: 'Content of SSH private key. e.g., raw content of ~/.ssh/id_rsa'
-        type: string
         required: true
-      project-folder:
+      SSH_PROJECT_FOLDER:
         description: 'Project folder on a remote server to deploy in'
-        type: string
         required: true
-      file:
+      DOCKER_COMPOSE_FILE:
         description: 'Docker compose file'
-        type: string
         required: true
 
 concurrency:
@@ -38,7 +35,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -54,15 +51,16 @@ jobs:
       - name: Deploy on a remote server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ inputs.host }}
-          username: ${{ inputs.username }}
-          key: ${{ inputs.key }}
-          port: ${{ inputs.port }}
+          host: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_HOST) ] || secrets.SSH_HOST }}
+          username: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_USERNAME) ] || secrets.SSH_USERNAME }}
+          key: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PRIVATE_KEY) ] || secrets.SSH_PRIVATE_KEY }}
+          port: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PORT) ] || secrets.SSH_PORT }}
           allenvs: true
           script: |
-            cd ${{ inputs.project-folder }}
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PROJECT_FOLDER) ] || secrets.SSH_PROJECT_FOLDER }}'
+            cd '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PROJECT_FOLDER) ] || secrets.SSH_PROJECT_FOLDER }}'
             git checkout ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
             git pull
-            echo '${{ inputs.sudo-password }}' | sudo -SE docker compose -f ${{ inputs.file }} down
-            sudo -E docker compose -f ${{ inputs.file }} up -d --build
-            echo '${{ inputs.sudo-password }}' | sudo -S docker system prune --all --force
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_SUDO_PASSWORD) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -SE docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.DOCKER_COMPOSE_FILE) ] || secrets.DOCKER_COMPOSE_FILE }} down
+            sudo -E docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.DOCKER_COMPOSE_FILE) ] || secrets.DOCKER_COMPOSE_FILE }} up -d --build
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_SUDO_PASSWORD) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -S docker system prune --all --force
