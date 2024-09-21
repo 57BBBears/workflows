@@ -6,6 +6,7 @@ on:
       environment:
         description: 'Environment to deploy to. Used as a prefix to required secrets e.g. <environment>_SSH_HOST'
         required: false
+        type: string
         default: ''
     secrets:
       SSH_HOST:
