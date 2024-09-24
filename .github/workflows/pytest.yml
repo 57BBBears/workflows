@@ -48,7 +48,6 @@ jobs:
           --health-retries 5
     env:
       ALL_SECRETS: ${{ toJSON(secrets) }}
-      DATABASE_HOST: localhost
 
     steps:
       - name: Secrets to envs

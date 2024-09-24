@@ -1,5 +1,5 @@
 name: Deploy with docker compose
-# All environment variables will be passed to docker compose file with a prefix INPUT_
+
 on:
   workflow_call:
     inputs:
@@ -39,26 +39,24 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      ALL_SECRETS: ${{ toJSON(secrets) }}
 
     steps:
-      - name: Secrets to envs
-        run: |
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          to_envs() { jq -r "to_entries[] | \"INPUT_\(.key)<<$EOF\n\(.value)\n$EOF\""; }
-          echo "$ALL_SECRETS" | to_envs >> $GITHUB_ENV
-
       - name: Deploy on a remote server
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_HOST) ] || secrets.SSH_HOST }}
           username: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_USERNAME) ] || secrets.SSH_USERNAME }}
           key: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PRIVATE_KEY) ] || secrets.SSH_PRIVATE_KEY }}
           port: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PORT) ] || secrets.SSH_PORT }}
-          allenvs: true
+          envs: ALL_SECRETS
           script: |
-            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PROJECT_FOLDER) ] || secrets.SSH_PROJECT_FOLDER }}'
+            while read -rd $'' line
+            do
+                export "$line"
+            done < <(jq -r <<<"$ALL_SECRETS" \
+            'to_entries|map("\(.key)=\(.value)\u0000")[]')
             cd '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PROJECT_FOLDER) ] || secrets.SSH_PROJECT_FOLDER }}'
             git checkout ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
             git pull
