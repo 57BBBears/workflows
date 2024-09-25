@@ -46,10 +46,10 @@ jobs:
           ALL_SECRETS: ${{ toJSON(secrets) }}
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_HOST) ] || secrets.SSH_HOST }}
-          username: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_USERNAME) ] || secrets.SSH_USERNAME }}
-          key: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PRIVATE_KEY) ] || secrets.SSH_PRIVATE_KEY }}
-          port: ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PORT) ] || secrets.SSH_PORT }}
+          host: ${{ inputs.environment != '' && secrets[ format('{0}_SSH_HOST', inputs.environment) ] || secrets.SSH_HOST }}
+          username: ${{ inputs.environment != '' && secrets[ format('{0}_SSH_USERNAME', inputs.environment) ] || secrets.SSH_USERNAME }}
+          key: ${{ inputs.environment != '' && secrets[ format('{0}_SSH_PRIVATE_KEY', inputs.environment) ] || secrets.SSH_PRIVATE_KEY }}
+          port: ${{ inputs.environment != '' && secrets[ format('{0}_SSH_PORT', inputs.environment) ] || secrets.SSH_PORT }}
           envs: ALL_SECRETS
           script: |
             while read -rd $'' line
@@ -57,9 +57,9 @@ jobs:
                 export "$line"
             done < <(jq -r <<<"$ALL_SECRETS" \
             'to_entries|map("\(.key)=\(.value)\u0000")[]')
-            cd '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_PROJECT_FOLDER) ] || secrets.SSH_PROJECT_FOLDER }}'
+            cd '${{ inputs.environment != '' && secrets[ format('{0}_SSH_PROJECT_FOLDER', inputs.environment) ] || secrets.SSH_PROJECT_FOLDER }}'
             git checkout ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
             git pull
-            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_SUDO_PASSWORD) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -SE docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.DOCKER_COMPOSE_FILE) ] || secrets.DOCKER_COMPOSE_FILE }} down
-            sudo -E docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.DOCKER_COMPOSE_FILE) ] || secrets.DOCKER_COMPOSE_FILE }} up -d --build
-            echo '${{ inputs.environment != '' && secrets[ format('{0}_{1}', inputs.environment, secrets.SSH_SUDO_PASSWORD) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -S docker system prune --all --force
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_SSH_SUDO_PASSWORD', inputs.environment) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -SE docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_DOCKER_COMPOSE_FILE', inputs.environment) ] || secrets.DOCKER_COMPOSE_FILE }} down
+            sudo -E docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_DOCKER_COMPOSE_FILE', inputs.environment) ] || secrets.DOCKER_COMPOSE_FILE }} up -d --build
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_SSH_SUDO_PASSWORD', inputs.environment) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -S docker system prune --all --force
