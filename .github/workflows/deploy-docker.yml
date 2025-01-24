@@ -18,17 +18,17 @@ on:
       SSH_USERNAME:
         description: 'SSH username'
         required: true
-      SSH_SUDO_PASSWORD:
-        description: 'Remote server user password'
-        required: true
       SSH_PRIVATE_KEY:
         description: 'Content of SSH private key. e.g., raw content of ~/.ssh/id_rsa'
         required: true
-      SSH_PROJECT_FOLDER:
-        description: 'Project folder on a remote server to deploy in'
+      SUDO_PASSWORD:
+        description: 'Remote server user password'
+        required: true
+      WORKDIR:
+        description: 'Working directory on a remote server to deploy to'
         required: true
       DOCKER_COMPOSE_FILE:
-        description: 'Docker compose file'
+        description: 'Docker compose file to run'
         required: true
 
 concurrency:
@@ -57,9 +57,9 @@ jobs:
                 export "$line"
             done < <(jq -r <<<"$ALL_SECRETS" \
             'to_entries|map("\(.key)=\(.value)\u0000")[]')
-            cd '${{ inputs.environment != '' && secrets[ format('{0}_SSH_PROJECT_FOLDER', inputs.environment) ] || secrets.SSH_PROJECT_FOLDER }}'
+            cd '${{ inputs.environment != '' && secrets[ format('{0}_WORKDIR', inputs.environment) ] || secrets.WORKDIR }}'
             git checkout ${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
             git pull
-            echo '${{ inputs.environment != '' && secrets[ format('{0}_SSH_SUDO_PASSWORD', inputs.environment) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -SE docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_DOCKER_COMPOSE_FILE', inputs.environment) ] || secrets.DOCKER_COMPOSE_FILE }} down
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_SUDO_PASSWORD', inputs.environment) ] || secrets.SUDO_PASSWORD }}' | sudo -SE docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_DOCKER_COMPOSE_FILE', inputs.environment) ] || secrets.DOCKER_COMPOSE_FILE }} down
             sudo -E docker compose -f ${{ inputs.environment != '' && secrets[ format('{0}_DOCKER_COMPOSE_FILE', inputs.environment) ] || secrets.DOCKER_COMPOSE_FILE }} up -d --build
-            echo '${{ inputs.environment != '' && secrets[ format('{0}_SSH_SUDO_PASSWORD', inputs.environment) ] || secrets.SSH_SUDO_PASSWORD }}' | sudo -S docker system prune --all --force
+            echo '${{ inputs.environment != '' && secrets[ format('{0}_SUDO_PASSWORD', inputs.environment) ] || secrets.SUDO_PASSWORD }}' | sudo -S docker system prune --all --force
